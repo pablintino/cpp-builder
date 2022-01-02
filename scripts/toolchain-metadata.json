@@ -1,5 +1,19 @@
 {
-  "urls": [
-  ],
+  "toolchains": {
+    "gcc-10.3": {
+      "type": "gcc-build",
+      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-10.3.0.tar.gz",
+      "languages": [
+        "c",
+        "c++",
+        "lto"
+      ],
+      "suffix-version": true,
+      "config-opts": [
+        "--enable-checking=release",
+        "--disable-multilib"
+      ]
+    }
+  },
   "base-path": "/opt/toolchains"
 }
