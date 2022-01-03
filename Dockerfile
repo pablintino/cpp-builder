@@ -27,20 +27,7 @@ RUN apt-get update && apt-get install -y \
     gzip \
     runit \
     xz-utils \
-    libssl-dev \
-    # REMOTE THIS IS FOR TEST
-    cmake
-
-#ARG BUILDER_CPU_COUNT=4
-
-# Install a recent copy of cmake
-#RUN  wget -c  https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1.tar.gz -O - | \
-#    tar -xz -C /tmp && \
-#    cd /tmp/cmake-3.22.1 && \
-#    ./bootstrap --parallel=$BUILDER_CPU_COUNT && \
-#    make && \
-#    make install && \
-#    rm -rf /tmp/cmake-3.22.1
+    libssl-dev
 
 # Install conan and init the default profile
 RUN pip3 install conan && conan config init && conan profile update settings.compiler.libcxx=libstdc++11 default
