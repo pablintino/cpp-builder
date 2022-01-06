@@ -1,18 +1,93 @@
 import io
 import logging
+import math
 import os
+import stat
 import subprocess
 import tarfile
+import time
+from pathlib import Path
 
 import requests
 from tqdm import tqdm
+
+__toolchain_reference_binaries = {}
+
+
+def __verify_is_gcc_clang_executable(binary_path, compiler_name):
+    must_support_options = ["-v", "-dumpmachine", "-dumpversion"]
+    is_ok = False
+    try:
+        for option in must_support_options:
+            result = subprocess.check_output(
+                [binary_path, option],
+                timeout=20,
+                encoding="UTF-8",
+                stderr=subprocess.STDOUT,
+            )
+            if option == "-v":
+                is_ok = result and f"{compiler_name} version" in result.strip().lower()
+            else:
+                is_ok = result != ""
+
+            if not is_ok:
+                return False
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+    return is_ok
+
+
+def __is_executable(file_name):
+    st = os.stat(file_name)
+    mode = st.st_mode
+    return mode & (stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def __search_compiler_binary(base_dir):
+    if base_dir in __toolchain_reference_binaries:
+        return __toolchain_reference_binaries[base_dir]
+
+    for path in Path(base_dir).rglob("*gcc*"):
+        exec_path = str(path.absolute())
+        if (
+            not path.is_dir()
+            and not path.stem.endswith((".py", ".perl", ".sh", ".bash"))
+            and __is_executable(path.absolute())
+            and (
+                path.stem.endswith("-gcc")
+                or path.stem.startswith("gcc-")
+                or path.stem == "gcc"
+            )
+            and __verify_is_gcc_clang_executable(exec_path, "gcc")
+        ):
+            __toolchain_reference_binaries[base_dir] = exec_path
+            return exec_path
+
+    for path in Path(base_dir).rglob("*clang*"):
+        exec_path = str(path.absolute())
+        if (
+            not path.is_dir()
+            and not path.stem.endswith((".py", ".perl", ".sh", ".bash"))
+            and __is_executable(path.absolute())
+            and (
+                path.stem.endswith("-clang")
+                or path.stem.startswith("clang-")
+                or path.stem == "clang"
+            )
+            and __verify_is_gcc_clang_executable(exec_path, "clang")
+        ):
+            __toolchain_reference_binaries[base_dir] = exec_path
+            return exec_path
+    return None
 
 
 class ProgressFileObject(io.FileIO):
     def __init__(self, path, *args, **kwargs):
         self._total_size = os.path.getsize(path)
         self.__count = 0
-        self.__tqdm = tqdm(total=self._total_size, unit='iB', unit_scale=True, unit_divisor=1024)
+        self.__tqdm = tqdm(
+            total=self._total_size, unit="iB", unit_scale=True, unit_divisor=1024
+        )
         io.FileIO.__init__(self, path, *args, **kwargs)
 
     def read(self, size):
@@ -30,13 +105,13 @@ class ProgressFileObject(io.FileIO):
 def download_file(url, fname):
     logging.info("Start download of %s", url)
     resp = requests.get(url, stream=True)
-    total = int(resp.headers.get('content-length', 0))
-    with open(fname, 'wb') as file, tqdm(
-            desc=fname,
-            total=total,
-            unit='iB',
-            unit_scale=True,
-            unit_divisor=1024,
+    total = int(resp.headers.get("content-length", 0))
+    with open(fname, "wb") as file, tqdm(
+        desc=fname,
+        total=total,
+        unit="iB",
+        unit_scale=True,
+        unit_divisor=1024,
     ) as bar:
         for data in resp.iter_content(chunk_size=1024):
             size = file.write(data)
@@ -50,13 +125,19 @@ def extract_file(file, target):
         return os.path.join(target, os.path.commonprefix(tar.getnames()))
 
 
-def call_process(arg_list, cwd=None, timeout=180):
-    command_str = ' '.join(map(str, arg_list))
+def call_process(arg_list, cwd=None, timeout=180, shell=False):
+    command_str = " ".join(map(str, arg_list))
     working_dir = os.getcwd() if not cwd else cwd
-    logging.info("Call command: %s", command_str)
     try:
-        return subprocess.check_output(arg_list, stdin=subprocess.DEVNULL, universal_newlines=True, cwd=working_dir,
-                                       timeout=timeout)
+        return subprocess.check_output(
+            arg_list,
+            stdin=subprocess.DEVNULL,
+            universal_newlines=True,
+            cwd=working_dir,
+            timeout=timeout,
+            shell=shell,
+            stderr=subprocess.STDOUT,
+        )
     except subprocess.CalledProcessError:
         logging.error("Failed to execute [%s]. Timeout (%d)", command_str, timeout)
         raise
@@ -65,23 +146,96 @@ def call_process(arg_list, cwd=None, timeout=180):
         raise
 
 
-def run_process(arg_list, cwd=None, timeout=180):
-    command_str = ' '.join(map(str, arg_list))
-    logging.info("Run command: %s", command_str)
+def run_process(arg_list, cwd=None, timeout=180, shell=False):
+    command_str = " ".join(map(str, arg_list)) if type(arg_list) is list else arg_list
     working_dir = os.getcwd() if not cwd else cwd
+    start_time = time.time()
     try:
-        subprocess.run(arg_list, cwd=working_dir, timeout=timeout, check=True)
+        subprocess.run(
+            arg_list, cwd=working_dir, timeout=timeout, check=True, shell=shell
+        )
     except subprocess.CalledProcessError:
         logging.error("Failed to execute [%s]. Exit code non-zero.", command_str)
         raise
     except subprocess.TimeoutExpired:
         logging.error("Failed to execute [%s]. Timeout (%d)", command_str, timeout)
         raise
+    finally:
+        logging.debug(
+            " Command '%s' took %f seconds to install",
+            command_str,
+            (time.time() - start_time),
+        )
 
 
-def capure_file_stdout(path):
+def capture_file_stdout(path):
     print("##################### START OF FILE OUTPUT ##################### ")
     print(f"####### Path {path}")
-    with open(path, 'r') as fin:
+    with open(path, "r") as fin:
         print(fin.read(), end="")
     print("##################### END OF FILE OUTPUT ##################### ")
+
+
+def install_apt_packages(names, timeout=180):
+    # Note: use apt-get (debian based distro assumed), not apt (not safe for CLI)
+    command = ["apt-get", "install", "-y"]
+    command.extend(names)
+    subprocess.check_call(
+        command,
+        stdout=open(os.devnull, "wb"),
+        stderr=subprocess.STDOUT,
+        timeout=timeout,
+    )
+
+
+def get_version_from_cmake_cache(cmake_cache_file, version_var=None):
+    if os.path.exists(cmake_cache_file):
+        with open(cmake_cache_file) as f:
+            for line in f:
+                if line.startswith(
+                    "CMAKE_PROJECT_VERSION:" if not version_var else f"{version_var}:"
+                ):
+                    parts = line.strip().split("=")
+                    if len(parts) > 1:
+                        return parts[-1].strip()
+
+
+def get_version_from_cmake_file(file, variable):
+    if os.path.exists(file):
+        with open(file) as f:
+            for line in f:
+                if line.startswith(("set", "SET")) and variable in line:
+                    parts = line.strip().split(" ")
+                    if len(parts) > 1:
+                        return parts[-1].strip().replace('"', "").replace(")", "")
+
+
+def check_output_compiler_reference_binary(target_dir, args, optional=False):
+    exec_path = __search_compiler_binary(target_dir)
+    if not exec_path and not optional:
+        SystemExit(f"Cannot find reference binary in target {target_dir}")
+    elif exec_path:
+        command = [exec_path]
+        command.extend(args if type(args) is list else [args])
+        return call_process(command)
+    else:
+        return None
+
+
+def get_max_allowed_cpus():
+    core_count = os.cpu_count()
+    return min(
+        int(os.environ.get("BUILDER_MAX_CPU_COUNT", core_count if core_count else 4)),
+        core_count,
+    )
+
+
+def get_command_timeout(reference_timeout):
+    multiplier = float(
+        os.environ.get("BUILDER_TIMEOUT_MULTIPLIER", "1").replace(",", "")
+    )
+    return (
+        int(math.ceil(multiplier * reference_timeout))
+        if multiplier > 1.0
+        else reference_timeout
+    )
