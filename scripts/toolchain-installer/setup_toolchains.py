@@ -23,7 +23,8 @@ def __install_tools(config):
 
 
 if __name__ == "__main__":
-    installation.reset_summary()
     config_file = os.environ.get("BUILDER_METADATA_PATH", __DEFAULT_METADATA_FILE)
     with open(config_file) as f:
         __install_tools(json.load(f))
+    installation.save_summary()
+    installation.write_environment_file()

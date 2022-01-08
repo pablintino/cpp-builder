@@ -1,9 +1,16 @@
 import json
-import logging
 import os
 import re
 
+
 __DEFAULT_SUMMARY_FILE = "/tools/scripts/.installation.json"
+__DEFAULT_ENVIRONMENT_FILE = "/tools/scripts/.env"
+
+__installation_summary__ = {}
+
+
+def __replace_non_alphanumeric_by_underscore(string):
+    return re.sub("[^0-9a-zA-Z]+", "_", string) if string else string
 
 
 def __component_has_multiple_versions(components, component_key):
@@ -47,54 +54,46 @@ def __tool_has_no_alternatives(components, component_key, component_data):
     return False
 
 
-def save_summary(summary):
+def __get_summary_path():
     summary_path = os.environ.get(
-        "BUILDER_INSTALLATION_SUMMARY_DIR", __DEFAULT_SUMMARY_FILE
+        "BUILDER_INSTALLATION_SUMMARY_PATH", __DEFAULT_SUMMARY_FILE
     )
+    return summary_path if summary_path else __DEFAULT_SUMMARY_FILE
+
+
+def __get_environment_file_path():
+    environment_file_path = os.environ.get(
+        "BUILDER_ENVIRONMENT_PATH", __DEFAULT_ENVIRONMENT_FILE
+    )
+    return (
+        environment_file_path if environment_file_path else __DEFAULT_ENVIRONMENT_FILE
+    )
+
+
+def save_summary():
+    global __installation_summary__
+    summary_path = __get_summary_path()
     os.makedirs(os.path.dirname(summary_path), exist_ok=True)
     with open(summary_path, "w") as f:
-        json.dump(summary, f, indent=2)
-
-
-def reset_summary():
-    save_summary({})
-
-
-def load_summary():
-    config_file = os.environ.get(
-        "BUILDER_INSTALLATION_SUMMARY_DIR", __DEFAULT_SUMMARY_FILE
-    )
-    if (
-        os.path.isfile(config_file)
-        and os.access(config_file, os.R_OK)
-        and os.stat(config_file).st_size != 0
-    ):
-        with open(config_file) as f:
-            try:
-                return json.load(f)
-            except json.decoder.JSONDecodeError:
-                logging.error("Error accessing inventory file. Usually wrong format.")
-    else:
-        save_summary({})
-        return {}
+        json.dump(__installation_summary__, f, indent=2)
 
 
 def add_tool_to_summary(tool_key, tool_metadata):
-    summary = load_summary()
-    if not summary:
-        summary = {"tools": {"components": {}}}
-    summary["tools"]["components"][tool_key] = tool_metadata
-    save_summary(summary)
+    global __installation_summary__
+    if "tools" not in __installation_summary__:
+        __installation_summary__ = {"tools": {"components": {}}}
+    __installation_summary__["tools"]["components"][tool_key] = tool_metadata
 
 
-def __replace_non_alphanumeric_by_underscore(string):
-    return re.sub("[^0-9a-zA-Z]+", "_", string) if string else string
-
-
-def get_environment_definitions(summary):
+def get_environment_definitions():
+    global __installation_summary__
     definitions = {}
-    if summary and summary["tools"] and summary["tools"]["components"]:
-        components = summary["tools"]["components"]
+    if (
+        __installation_summary__
+        and "tools" in __installation_summary__
+        and "components" in __installation_summary__["tools"]
+    ):
+        components = __installation_summary__["tools"]["components"]
         for component_key, component_data in components.items():
             suffix_version = __component_has_multiple_versions(
                 components, component_key
@@ -134,3 +133,9 @@ def get_environment_definitions(summary):
                         definitions[var_name.replace("__", "_")] = component_path
 
     return definitions
+
+
+def write_environment_file():
+    with open(__get_environment_file_path(), "w") as f:
+        for var_name, value in get_environment_definitions().items():
+            f.write(f"{var_name}={value}\n")

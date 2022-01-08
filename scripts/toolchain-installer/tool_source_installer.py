@@ -224,7 +224,6 @@ class GccSourcesInstaller(ToolSourceInstaller):
         target_triplet = utils.check_output_compiler_reference_binary(
             self._target_dir, "-dumpmachine"
         ).strip()
-        logging.debug("Toolchain detected. Triplet: %s", target_triplet)
         base_summary["triplet"] = target_triplet
         return base_summary
 
@@ -315,7 +314,6 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         )
         if target_triplet:
             target_triplet = target_triplet.strip()
-            logging.debug("Toolchain detected. Triplet: %s", target_triplet)
             base_summary["triplet"] = target_triplet
         return base_summary
 
@@ -443,7 +441,6 @@ class DownloadOnlyCompilerInstaller(CopyOnlySourcesInstaller):
         target_triplet = utils.check_output_compiler_reference_binary(
             self._target_dir, "-dumpmachine"
         ).strip()
-        logging.debug("Toolchain detected. Triplet: %s", target_triplet)
         base_summary["triplet"] = target_triplet
         return base_summary
 
