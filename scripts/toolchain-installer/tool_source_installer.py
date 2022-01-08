@@ -48,12 +48,15 @@ class ToolInstaller(metaclass=abc.ABCMeta):
             shutil.rmtree(self._target_dir, ignore_errors=True)
 
     def _create_installation_summary(self):
-        return {
+        tool_summary = {
             "version": self._version,
             "path": self._target_dir,
             "name": self.name,
-            "group": self._config.get("group", None),
         }
+        if "group" in self._config:
+            tool_summary["group"] = self._config["group"]
+
+        return tool_summary
 
     def _compute_tool_version(self):
         if "version" not in self._config:
@@ -101,7 +104,7 @@ class ToolSourceInstaller(ToolInstaller):
             shell=shell,
         )
 
-    def _build(self, timeout=1800, directory=None, shell=False):
+    def _build(self, timeout=900, directory=None, shell=False):
         utils.run_process(
             self._create_build_cmd(),
             cwd=self._sources_dir if not directory else directory,
@@ -240,7 +243,8 @@ class GccSourcesInstaller(ToolSourceInstaller):
 
         self._configure(directory=build_path, timeout=300)
         try:
-            self._build(directory=build_path, timeout=7200)
+            # Timeout for GCC with all languages enabled
+            self._build(directory=build_path, timeout=2000)
             self._install(directory=build_path, timeout=300)
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
             utils.capture_file_stdout(os.path.join(build_path, "Makefile"))
@@ -329,7 +333,8 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         # Version depends on CMakeCache created after configuration
         self._compute_tool_version()
 
-        self._build(directory=build_path, timeout=7200)
+        # Simplified timeout that assumes all options enabled
+        self._build(directory=build_path, timeout=3400)
         self._install(directory=build_path, timeout=300)
 
 
@@ -377,12 +382,12 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
 
         # Shell is mandatory (command is passed as string, not list) as it seems that by using the normal way
         #  CMake ignores -D options
-        self._configure(timeout=300, shell=True)
+        self._configure(timeout=120, shell=True)
 
         self._compute_tool_version()
 
-        self._build(timeout=600)
-        self._install(timeout=300)
+        self._build(timeout=300)
+        self._install(timeout=120)
 
 
 class ValgrindSourcesInstaller(ToolSourceInstaller):

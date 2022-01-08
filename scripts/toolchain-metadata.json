@@ -2,17 +2,17 @@
   "tools": {
     "base-path": "/tools",
     "components": {
-      "gcc-10.3": {
+      "gcc-11.2": {
         "group": "compilers",
         "type": "gcc-build",
         "name": "gcc",
-        "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-10.3.0.tar.gz",
+        "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-11.2.0.tar.gz",
         "languages": [
           "c",
           "c++",
           "lto"
         ],
-        "suffix-version": true,
+        "suffix-version": false,
         "config-opts": [
           "--enable-checking=release",
           "--disable-multilib"

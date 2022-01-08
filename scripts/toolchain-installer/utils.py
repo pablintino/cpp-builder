@@ -139,7 +139,7 @@ def call_process(arg_list, cwd=None, timeout=180, shell=False):
             stderr=subprocess.STDOUT,
         )
     except subprocess.CalledProcessError:
-        logging.error("Failed to execute [%s]. Timeout (%d)", command_str, timeout)
+        logging.error("Failed to execute [%s]. Exit code non-zero.", command_str)
         raise
     except subprocess.TimeoutExpired:
         logging.error("Failed to execute [%s]. Timeout (%d)", command_str, timeout)
@@ -162,7 +162,7 @@ def run_process(arg_list, cwd=None, timeout=180, shell=False):
         raise
     finally:
         logging.debug(
-            " Command '%s' took %f seconds to install",
+            " Command '%s' took %f seconds to execute",
             command_str,
             (time.time() - start_time),
         )
@@ -176,7 +176,7 @@ def capture_file_stdout(path):
     print("##################### END OF FILE OUTPUT ##################### ")
 
 
-def install_apt_packages(names, timeout=180):
+def install_apt_packages(names, timeout=None):
     # Note: use apt-get (debian based distro assumed), not apt (not safe for CLI)
     command = ["apt-get", "install", "-y"]
     command.extend(names)
@@ -184,7 +184,8 @@ def install_apt_packages(names, timeout=180):
         command,
         stdout=open(os.devnull, "wb"),
         stderr=subprocess.STDOUT,
-        timeout=timeout,
+        # By default use 3 minutes as timeout for each packet
+        timeout=3 * 60 * len(names) if not timeout else timeout,
     )
 
 
@@ -198,6 +199,7 @@ def get_version_from_cmake_cache(cmake_cache_file, version_var=None):
                     parts = line.strip().split("=")
                     if len(parts) > 1:
                         return parts[-1].strip()
+    return None
 
 
 def get_version_from_cmake_file(file, variable):
@@ -208,6 +210,7 @@ def get_version_from_cmake_file(file, variable):
                     parts = line.strip().split(" ")
                     if len(parts) > 1:
                         return parts[-1].strip().replace('"', "").replace(")", "")
+    return None
 
 
 def check_output_compiler_reference_binary(target_dir, args, optional=False):

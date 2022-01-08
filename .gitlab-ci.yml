@@ -20,6 +20,8 @@ variables:
   # `/certs/client` to share between the service and job
   # container, thanks to volume mount from config.toml
   DOCKER_TLS_CERTDIR: "/certs"
+  BUILDER_MAX_CPU_COUNT: 16
+  BUILDER_TIMEOUT_MULTIPLIER: 1
 
 services:
   - docker:19.03.12-dind
@@ -37,8 +39,8 @@ Build:
   script:
     - >
       docker build
-      --build-arg BUILDER_TIMEOUT_MULTIPLIER=10
-      --build-arg BUILDER_MAX_CPU_COUNT=5
+      --build-arg BUILDER_TIMEOUT_MULTIPLIER=$BUILDER_TIMEOUT_MULTIPLIER
+      --build-arg BUILDER_MAX_CPU_COUNT=$BUILDER_MAX_CPU_COUNT
       --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
