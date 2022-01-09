@@ -37,8 +37,8 @@ def __get_compiler_triplet_from_config(component_data):
         and "triplet" in component_data
     ):
         return component_data["triplet"].strip().replace("-", "_")
-    else:
-        return ""
+
+    return None
 
 
 def __tool_has_no_alternatives(components, component_key, component_data):
@@ -102,35 +102,45 @@ def get_environment_definitions():
             if component_path and (
                 not suffix_version or (suffix_version and "version" in component_data)
             ):
-                compiler_string = __get_compiler_triplet_from_config(component_data)
+                compiler_string = (
+                    __get_compiler_triplet_from_config(component_data) or ""
+                )
                 safe_name = __replace_non_alphanumeric_by_underscore(component_key)
                 if suffix_version and "version" in component_data:
                     safe_version = __replace_non_alphanumeric_by_underscore(
                         component_data["version"].strip()
                     )
-                    var_name = f"BUILDER_{safe_name}_{compiler_string}_{safe_version}_DIR".upper()
-                    definitions[var_name.replace("__", "_")] = component_path
+                    var_name = f"BUILDER_{safe_name}_{compiler_string}_{safe_version}_DIR".upper().replace(
+                        "__", "_"
+                    )
+                    definitions[var_name] = component_path
                 else:
-                    var_name = f"BUILDER_{safe_name}_{compiler_string}_DIR".upper()
-                    definitions[var_name.replace("__", "_")] = component_path
+                    var_name = (
+                        f"BUILDER_{safe_name}_{compiler_string}_DIR".upper().replace(
+                            "__", "_"
+                        )
+                    )
+                    definitions[var_name] = component_path
 
                     # If version is not mandatory is safe to add a simplified env var too based on name
                     component_name = __replace_non_alphanumeric_by_underscore(
                         component_data.get("name", None)
                     )
                     if component_name:
-                        var_name = (
-                            f"BUILDER_{component_name}_{compiler_string}_DIR".upper()
+                        var_name = f"BUILDER_{component_name}_{compiler_string}_DIR".upper().replace(
+                            "__", "_"
                         )
-                        definitions[var_name.replace("__", "_")] = component_path
+                        definitions[var_name] = component_path
 
                     # If component is unique (no more versions or triplets) add a simple var that contains only its name
                     # Note: This applies to compilers only. Other tools already simplified by the previous variable
                     if compiler_string and __tool_has_no_alternatives(
                         components, component_key, component_data
                     ):
-                        var_name = f"BUILDER_{component_name}_DIR".upper()
-                        definitions[var_name.replace("__", "_")] = component_path
+                        var_name = f"BUILDER_{component_name}_DIR".upper().replace(
+                            "__", "_"
+                        )
+                        definitions[var_name] = component_path
 
     return definitions
 
