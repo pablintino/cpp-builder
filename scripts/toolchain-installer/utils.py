@@ -51,7 +51,7 @@ def __search_compiler_binary(base_dir):
         exec_path = str(path.absolute())
         if (
             not path.is_dir()
-            and not path.stem.endswith((".py", ".perl", ".sh", ".bash"))
+            and not path.name.endswith((".py", ".perl", ".sh", ".bash"))
             and __is_executable(path.absolute())
             and (
                 path.stem.endswith("-gcc")
@@ -67,7 +67,9 @@ def __search_compiler_binary(base_dir):
         exec_path = str(path.absolute())
         if (
             not path.is_dir()
-            and not path.stem.endswith((".py", ".perl", ".sh", ".bash"))
+            and not path.name.endswith(
+                (".py", ".perl", ".sh", ".bash", ".el", ".applescript")
+            )
             and __is_executable(path.absolute())
             and (
                 path.stem.endswith("-clang")
