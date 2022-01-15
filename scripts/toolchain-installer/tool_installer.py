@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import subprocess
 
+import conan_manager
 import utils
 import tempfile
 import installation
@@ -119,8 +120,10 @@ class ToolSourceInstaller(ToolInstaller):
             timeout=utils.get_command_timeout(timeout),
             shell=shell,
         )
-        installation.add_tool_to_summary(
-            self.tool_key, self._create_installation_summary()
+        installation_summary = self._create_installation_summary()
+        installation.add_tool_to_summary(self.tool_key, installation_summary)
+        conan_manager.create_profiles_from_compiler(
+            self.tool_key, self._config, installation_summary
         )
 
     def run_installation(self):

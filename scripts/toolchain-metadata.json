@@ -2,7 +2,7 @@
   "tools": {
     "base-path": "/tools",
     "components": {
-      "gcc-11.2": {
+      "gcc-11": {
         "group": "compilers",
         "type": "gcc-build",
         "name": "gcc",
@@ -13,9 +13,28 @@
           "lto"
         ],
         "suffix-version": false,
+        "conan-profile": true,
         "config-opts": [
+          "--disable-vtable-verify",
+          "--disable-multilib",
+          "--disable-werror",
+          "--without-included-gettext",
           "--enable-checking=release",
-          "--disable-multilib"
+          "--enable-shared",
+          "--enable-linker-build-id",
+          "--enable-threads=posix",
+          "--enable-nls",
+          "--enable-clocale=gnu",
+          "--enable-libstdcxx-debug",
+          "--enable-libstdcxx-time=yes",
+          "--enable-gnu-unique-object",
+          "--enable-plugin",
+          "--enable-default-pie",
+          "--enable-objc-gc=auto",
+          "--enable-multiarch",
+          "--with-system-zlib",
+          "--with-target-system-zlib=auto",
+          "--with-default-libstdcxx-abi=new"
         ]
       },
       "cmake-3.22": {
@@ -43,10 +62,11 @@
           "libc6-dbg"
         ]
       },
-      "clang-13.0": {
+      "clang-13": {
         "group": "compilers",
         "type": "clang-build",
         "name": "clang",
+        "conan-profile": true,
         "url": "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz",
         "modules": [
           "clang",

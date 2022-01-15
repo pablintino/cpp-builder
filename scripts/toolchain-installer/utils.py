@@ -2,6 +2,7 @@ import io
 import logging
 import math
 import os
+import re
 import stat
 import subprocess
 import tarfile
@@ -12,6 +13,27 @@ import requests
 from tqdm import tqdm
 
 __toolchain_reference_binaries = {}
+
+
+class ProgressFileObject(io.FileIO):
+    def __init__(self, path, *args, **kwargs):
+        self._total_size = os.path.getsize(path)
+        self.__count = 0
+        self.__tqdm = tqdm(
+            total=self._total_size, unit="iB", unit_scale=True, unit_divisor=1024
+        )
+        io.FileIO.__init__(self, path, *args, **kwargs)
+
+    def read(self, size):
+        pos = self.tell()
+        if self.__count != pos:
+            self.__tqdm.update(pos - self.__count)
+        self.__count = pos
+        return io.FileIO.read(self, size)
+
+    def close(self):
+        super(ProgressFileObject, self).close()
+        self.__tqdm.close()
 
 
 def __verify_is_gcc_clang_executable(binary_path, compiler_name):
@@ -43,16 +65,16 @@ def __is_executable(file_name):
     return mode & (stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def __search_compiler_binary(base_dir):
-    if base_dir in __toolchain_reference_binaries:
-        return __toolchain_reference_binaries[base_dir]
-
+def __get_gcc_binary_path(base_dir):
+    last_exec = None
     for path in Path(base_dir).rglob("*gcc*"):
         exec_path = str(path.absolute())
         if (
             not path.is_dir()
             and not path.name.endswith((".py", ".perl", ".sh", ".bash"))
             and __is_executable(path.absolute())
+            # Discard g++ executables
+            and "g++" not in path.stem
             and (
                 path.stem.endswith("-gcc")
                 or path.stem.startswith("gcc-")
@@ -60,9 +82,16 @@ def __search_compiler_binary(base_dir):
             )
             and __verify_is_gcc_clang_executable(exec_path, "gcc")
         ):
-            __toolchain_reference_binaries[base_dir] = exec_path
-            return exec_path
+            # Many times gcc has prefixed names. Try to spot the shortest one
+            if not last_exec or len(os.path.basename(exec_path)) < len(
+                os.path.basename(last_exec)
+            ):
+                last_exec = exec_path
+    return last_exec
 
+
+def __get_clang_binary_path(base_dir):
+    last_exec = None
     for path in Path(base_dir).rglob("*clang*"):
         exec_path = str(path.absolute())
         if (
@@ -71,6 +100,8 @@ def __search_compiler_binary(base_dir):
                 (".py", ".perl", ".sh", ".bash", ".el", ".applescript")
             )
             and __is_executable(path.absolute())
+            # Discard clang++ executables
+            and "clang++" not in path.stem
             and (
                 path.stem.endswith("-clang")
                 or path.stem.startswith("clang-")
@@ -78,30 +109,29 @@ def __search_compiler_binary(base_dir):
             )
             and __verify_is_gcc_clang_executable(exec_path, "clang")
         ):
-            __toolchain_reference_binaries[base_dir] = exec_path
-            return exec_path
-    return None
+            # Many times gcc has prefixed names. Try to spot the shortest one
+            if not last_exec or len(os.path.basename(exec_path)) < len(
+                os.path.basename(last_exec)
+            ):
+                last_exec = exec_path
+
+    return last_exec
 
 
-class ProgressFileObject(io.FileIO):
-    def __init__(self, path, *args, **kwargs):
-        self._total_size = os.path.getsize(path)
-        self.__count = 0
-        self.__tqdm = tqdm(
-            total=self._total_size, unit="iB", unit_scale=True, unit_divisor=1024
-        )
-        io.FileIO.__init__(self, path, *args, **kwargs)
+def replace_non_alphanumeric(string, replace):
+    return re.sub("[^0-9a-zA-Z]+", replace, string) if string else string
 
-    def read(self, size):
-        pos = self.tell()
-        if self.__count != pos:
-            self.__tqdm.update(pos - self.__count)
-        self.__count = pos
-        return io.FileIO.read(self, size)
 
-    def close(self):
-        super(ProgressFileObject, self).close()
-        self.__tqdm.close()
+def get_compiler_binary_path(base_dir):
+    if base_dir in __toolchain_reference_binaries:
+        return __toolchain_reference_binaries[base_dir]
+    exec_path = __get_gcc_binary_path(base_dir)
+    if not exec_path:
+        exec_path = __get_clang_binary_path(base_dir)
+    if exec_path:
+        __toolchain_reference_binaries[base_dir] = exec_path
+
+    return exec_path
 
 
 def download_file(url, fname):
@@ -216,7 +246,7 @@ def get_version_from_cmake_file(file, variable):
 
 
 def check_output_compiler_reference_binary(target_dir, args, optional=False):
-    exec_path = __search_compiler_binary(target_dir)
+    exec_path = get_compiler_binary_path(target_dir)
     if not exec_path and not optional:
         SystemExit(f"Cannot find reference binary in target {target_dir}")
     elif exec_path:

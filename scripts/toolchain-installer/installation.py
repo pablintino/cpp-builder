@@ -1,16 +1,12 @@
 import json
 import os
-import re
-
+import utils
 
 __DEFAULT_SUMMARY_FILE = "/tools/scripts/.installation.json"
 __DEFAULT_ENVIRONMENT_FILE = "/tools/scripts/.env"
 
 __installation_summary__ = {}
-
-
-def __replace_non_alphanumeric_by_underscore(string):
-    return re.sub("[^0-9a-zA-Z]+", "_", string) if string else string
+__extra_env_vars__ = {}
 
 
 def __component_has_multiple_versions(components, component_key):
@@ -85,6 +81,10 @@ def add_tool_to_summary(tool_key, tool_metadata):
     __installation_summary__["tools"]["components"][tool_key] = tool_metadata
 
 
+def add_custom_env_var(key, value):
+    __extra_env_vars__[key] = value
+
+
 def get_environment_definitions():
     global __installation_summary__
     definitions = {}
@@ -105,10 +105,10 @@ def get_environment_definitions():
                 compiler_string = (
                     __get_compiler_triplet_from_config(component_data) or ""
                 )
-                safe_name = __replace_non_alphanumeric_by_underscore(component_key)
+                safe_name = utils.replace_non_alphanumeric(component_key, "_")
                 if suffix_version and "version" in component_data:
-                    safe_version = __replace_non_alphanumeric_by_underscore(
-                        component_data["version"].strip()
+                    safe_version = utils.replace_non_alphanumeric(
+                        component_data["version"].strip(), "_"
                     )
                     var_name = f"BUILDER_{safe_name}_{compiler_string}_{safe_version}_DIR".upper().replace(
                         "__", "_"
@@ -123,8 +123,8 @@ def get_environment_definitions():
                     definitions[var_name] = component_path
 
                     # If version is not mandatory is safe to add a simplified env var too based on name
-                    component_name = __replace_non_alphanumeric_by_underscore(
-                        component_data.get("name", None)
+                    component_name = utils.replace_non_alphanumeric(
+                        component_data.get("name", None), "_"
                     )
                     if component_name:
                         var_name = f"BUILDER_{component_name}_{compiler_string}_DIR".upper().replace(
@@ -147,5 +147,9 @@ def get_environment_definitions():
 
 def write_environment_file():
     with open(__get_environment_file_path(), "w") as f:
-        for var_name, value in get_environment_definitions().items():
+        merged_dict = dict(
+            list(get_environment_definitions().items())
+            + list(__extra_env_vars__.items())
+        )
+        for var_name, value in merged_dict.items():
             f.write(f"{var_name}={value}\n")
