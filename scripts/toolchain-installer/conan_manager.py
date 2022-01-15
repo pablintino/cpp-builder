@@ -31,7 +31,9 @@ def __prepare_common_profile_file(installation_info, compiler, release_type):
         raise SystemExit(f"Compiler triplet empty or not recognised: {triplet}")
 
     config["settings"]["arch"] = triplet[0]
-    config["settings"]["os"] = triplet[1] if len(triplet) == 3 else triplet[2]
+    config["settings"]["os"] = (
+        triplet[1] if len(triplet) == 3 else triplet[2]
+    ).capitalize()
     config["settings"]["compiler"] = compiler
     config["settings"]["compiler.version"] = (
         installation_info["version"].strip().split(".")[0]
