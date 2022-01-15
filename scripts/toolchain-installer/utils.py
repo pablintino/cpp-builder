@@ -179,7 +179,9 @@ def call_process(arg_list, cwd=None, timeout=180, shell=False):
 
 
 def run_process(arg_list, cwd=None, timeout=180, shell=False):
-    command_str = " ".join(map(str, arg_list)) if type(arg_list) is list else arg_list
+    command_str = (
+        " ".join(map(str, arg_list)) if isinstance(arg_list, list) else arg_list
+    )
     working_dir = os.getcwd() if not cwd else cwd
     start_time = time.time()
     try:
@@ -251,7 +253,7 @@ def check_output_compiler_reference_binary(target_dir, args, optional=False):
         SystemExit(f"Cannot find reference binary in target {target_dir}")
     elif exec_path:
         command = [exec_path]
-        command.extend(args if type(args) is list else [args])
+        command.extend(args if isinstance(args, list) else [args])
         return call_process(command)
     else:
         return None

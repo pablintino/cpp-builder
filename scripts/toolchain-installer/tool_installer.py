@@ -53,6 +53,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
             "version": self._version,
             "path": self._target_dir,
             "name": self.name,
+            "installation-config": self._config,
         }
         if "group" in self._config:
             tool_summary["group"] = self._config["group"]

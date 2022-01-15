@@ -37,6 +37,42 @@
           "--with-default-libstdcxx-abi=new"
         ]
       },
+      "gcc-10": {
+        "group": "compilers",
+        "type": "gcc-build",
+        "name": "gcc",
+        "default": true,
+        "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-10.3.0.tar.gz",
+        "languages": [
+          "c",
+          "c++",
+          "lto"
+        ],
+        "suffix-version": false,
+        "conan-profile": true,
+        "config-opts": [
+          "--disable-vtable-verify",
+          "--disable-multilib",
+          "--disable-werror",
+          "--without-included-gettext",
+          "--enable-checking=release",
+          "--enable-shared",
+          "--enable-linker-build-id",
+          "--enable-threads=posix",
+          "--enable-nls",
+          "--enable-clocale=gnu",
+          "--enable-libstdcxx-debug",
+          "--enable-libstdcxx-time=yes",
+          "--enable-gnu-unique-object",
+          "--enable-plugin",
+          "--enable-default-pie",
+          "--enable-objc-gc=auto",
+          "--enable-multiarch",
+          "--with-system-zlib",
+          "--with-target-system-zlib=auto",
+          "--with-default-libstdcxx-abi=new"
+        ]
+      },
       "cmake-3.22": {
         "name": "cmake",
         "type": "cmake-build",

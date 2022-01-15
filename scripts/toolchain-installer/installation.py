@@ -10,19 +10,31 @@ __extra_env_vars__ = {}
 
 
 def __component_has_multiple_versions(components, component_key):
-    component = None
-    for _, details in components.items():
-        if "name" in details and details["name"] == component_key:
-            if not component:
-                component = details
-            elif (
-                "triplet" in details
-                and "triplet" in component
-                and details["triplet"] == component["triplet"]
-            ):
+    component = components[component_key]
+    # Filter components to only those that have the same same and are not the component_key
+    for _, other_details in {
+        key: value
+        for (key, value) in components.items()
+        if (key != component_key and value["name"] == component["name"])
+    }.items():
+        if (
+            "triplet" in other_details
+            and "triplet" in component
+            and other_details["triplet"] == component["triplet"]
+        ):
+            # Multiple components with the same name and same triplet
+            if component.get("version", None) != other_details.get("version", None):
                 return True
-            elif "triplet" not in details and "triplet" not in component:
+        if ("triplet" not in other_details and "triplet" in component) or (
+            "triplet" in other_details and "triplet" not in component
+        ):
+            # One contains triplet and the other not
+            return True
+        if "triplet" not in other_details and "triplet" not in component:
+            # No triplet in both. Distinguish by version
+            if component.get("version", None) != other_details.get("version", None):
                 return True
+
     return False
 
 
@@ -66,6 +78,11 @@ def __get_environment_file_path():
     )
 
 
+def __is_default_tool(component_data):
+    installation_config = component_data.get("installation-config", None)
+    return installation_config and installation_config.get("default", False)
+
+
 def save_summary():
     global __installation_summary__
     summary_path = __get_summary_path()
@@ -105,32 +122,38 @@ def get_environment_definitions():
                 compiler_string = (
                     __get_compiler_triplet_from_config(component_data) or ""
                 )
-                safe_name = utils.replace_non_alphanumeric(component_key, "_")
-                if suffix_version and "version" in component_data:
+                safe_key = utils.replace_non_alphanumeric(component_key, "_")
+                component_name = utils.replace_non_alphanumeric(
+                    component_data["name"], "_"
+                )
+                if suffix_version:
                     safe_version = utils.replace_non_alphanumeric(
                         component_data["version"].strip(), "_"
                     )
-                    var_name = f"BUILDER_{safe_name}_{compiler_string}_{safe_version}_DIR".upper().replace(
+                    var_name = f"BUILDER_{safe_key}_{compiler_string}_{safe_version}_DIR".upper().replace(
                         "__", "_"
                     )
                     definitions[var_name] = component_path
+
+                    # If flagged with "default" in metadata json add a simplified environment variable
+                    if __is_default_tool(component_data):
+                        var_name = f"BUILDER_{component_name}_DIR".upper().replace(
+                            "__", "_"
+                        )
+                        definitions[var_name] = component_path
                 else:
                     var_name = (
-                        f"BUILDER_{safe_name}_{compiler_string}_DIR".upper().replace(
+                        f"BUILDER_{safe_key}_{compiler_string}_DIR".upper().replace(
                             "__", "_"
                         )
                     )
                     definitions[var_name] = component_path
 
                     # If version is not mandatory is safe to add a simplified env var too based on name
-                    component_name = utils.replace_non_alphanumeric(
-                        component_data.get("name", None), "_"
+                    var_name = f"BUILDER_{component_name}_{compiler_string}_DIR".upper().replace(
+                        "__", "_"
                     )
-                    if component_name:
-                        var_name = f"BUILDER_{component_name}_{compiler_string}_DIR".upper().replace(
-                            "__", "_"
-                        )
-                        definitions[var_name] = component_path
+                    definitions[var_name] = component_path
 
                     # If component is unique (no more versions or triplets) add a simple var that contains only its name
                     # Note: This applies to compilers only. Other tools already simplified by the previous variable
