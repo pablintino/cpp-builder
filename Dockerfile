@@ -1,49 +1,22 @@
-FROM debian:bullseye-slim
+FROM registry.internal.pablintino.net/tools/builder2:v1.0.4
 
-RUN apt-get update && apt-get install -y \
-    apt-utils \
-    curl \
-    wget \
-    automake \
-    autogen \
-    bash \
-    bc \
-    ca-certificates \
-    curl \
-    cmake \
-    file \
-    git \
-    make \
-    ncurses-dev \
-    pkg-config \
-    libtool \
-    python3 \
-    python3-pip \
-    ninja-build \
-    sed \
-    bison \
-    flex \
-    tar \
-    bzip2 \
-    gzip \
-    runit \
-    xz-utils \
-    libssl-dev
 
-ARG BUILDER_METADATA_PATH
-ARG BUILDER_ENVIRONMENT_PATH=/tools/scripts/.env
-ARG BUILDER_INSTALLATION_SUMMARY_PATH
-ARG BUILDER_CONAN_PROFILES_PATH
-ARG BUILDER_MAX_CPU_COUNT
-ARG BUILDER_TIMEOUT_MULTIPLIER
-ENV BUILDER_ENVIRONMENT_PATH $BUILDER_ENVIRONMENT_PATH
+ARG BUILDER_INSTALLATION=/tools
+ARG BUILDER_CUSTOM_CERTS=/etc/ssl/custom
+ARG BUILDER_MAX_CPU_COUNT=10
+ARG BUILDER_TIMEOUT_MULTIPLIER=100
+ENV BUILDER_INSTALLATION $BUILDER_INSTALLATION
+ENV BUILDER_CUSTOM_CERTS $BUILDER_CUSTOM_CERTS
 
-# Install conan and init the default profile
-RUN pip3 install conan && conan config init && conan profile update settings.compiler.libcxx=libstdc++11 default
 
-COPY scripts /tools/scripts
-ENV PATH="/tools/scripts:${PATH}"
-RUN pip3 install -r /tools/scripts/toolchain-installer/requirements.txt && python3 /tools/scripts/toolchain-installer/setup_toolchains.py
+COPY entrypoint /opt/builder2/entrypoint
+COPY cpp-toolchain-metadata.json /opt/builder2/toolchain-metadata.json
 
-ENTRYPOINT ["/tools/scripts/entrypoint"]
+
+RUN builder2 install -f /opt/builder2/toolchain-metadata.json  \
+    -j $BUILDER_MAX_CPU_COUNT \
+    -t $BUILDER_TIMEOUT_MULTIPLIER \
+    -d $BUILDER_INSTALLATION
+
+ENTRYPOINT ["/opt/builder2/entrypoint"]
 CMD ["/bin/bash"]

@@ -1,6 +1,34 @@
 {
-  "tools": {
-    "base-path": "/tools",
+    "packages": [
+      {
+        "type": "pip",
+        "name": "conan",
+        "post-installation": [
+          "conan config init",
+          "conan profile update settings.compiler.libcxx=libstdc++11 default"
+        ]
+      },
+      {
+        "type": "apt",
+        "name": "curl"
+      },
+      {
+        "type": "apt",
+        "name": "git"
+      },
+      {
+        "type": "apt",
+        "name": "make"
+      },
+      {
+        "type": "apt",
+        "name": "ninja-build"
+      },
+      {
+        "type": "apt",
+        "name": "autoconf"
+      }
+    ],
     "components": {
       "gcc-11": {
         "group": "compilers",
@@ -12,7 +40,6 @@
           "c++",
           "lto"
         ],
-        "suffix-version": false,
         "conan-profile": true,
         "config-opts": [
           "--disable-vtable-verify",
@@ -48,7 +75,6 @@
           "c++",
           "lto"
         ],
-        "suffix-version": false,
         "conan-profile": true,
         "config-opts": [
           "--disable-vtable-verify",
@@ -93,16 +119,16 @@
       "valgrind-3.18.1": {
         "type": "valgrind-build",
         "name": "valgrind",
-        "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2",
-        "required-packages": [
-          "libc6-dbg"
-        ]
+        "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2"
       },
       "clang-13": {
         "group": "compilers",
         "type": "clang-build",
         "name": "clang",
         "conan-profile": true,
+        "config-opts": [
+          "-DBUILD_SHARED_LIBS=on"
+        ],
         "url": "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz",
         "modules": [
           "clang",
@@ -111,4 +137,4 @@
       }
     }
   }
-}
+  

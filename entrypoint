@@ -1,0 +1,3 @@
+#! /bin/bash
+
+builder2 bootstrap --no-output --certs "$BUILDER_CUSTOM_CERTS" -- "$@"
